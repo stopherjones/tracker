@@ -20,6 +20,11 @@ function makeId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
+// dateFound is only used while editing, so it is not stored.
+function stripTransient({ dateFound, ...fields }) {
+  return fields;
+}
+
 export const storage = {
   async getEntries() {
     return load();
@@ -28,7 +33,7 @@ export const storage = {
   async addEntry(parsed) {
     const entry = {
       id: makeId(),
-      ...parsed,
+      ...stripTransient(parsed),
       createdAt: new Date().toISOString(),
     };
     const entries = load();
@@ -37,8 +42,14 @@ export const storage = {
     return entry;
   },
 
-  async deleteEntry(id) {
-    const entries = load().filter((e) => e.id !== id);
+  async updateEntry(id, changes) {
+    const entries = load().map((e) =>
+      e.id === id ? { ...e, ...stripTransient(changes), updatedAt: new Date().toISOString() } : e
+    );
     save(entries);
+  },
+
+  async deleteEntry(id) {
+    save(load().filter((e) => e.id !== id));
   },
 };

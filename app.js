@@ -7,16 +7,19 @@ const input = document.getElementById('entry-input');
 const errorEl = document.getElementById('error');
 const feed = document.getElementById('feed');
 
-const dayFormatter = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' });
+// Which past days are expanded. Kept across re-renders so the view doesn't collapse.
+const openDays = new Set();
+
+const dayFormatter = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 const timeFormatter = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' });
 
-function dayLabel(date) {
-  const today = new Date();
-  const yesterday = new Date();
-  yesterday.setDate(today.getDate() - 1);
+const dayKey = (date) => date.toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
 
-  if (date.toDateString() === today.toDateString()) return 'Today';
-  if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+function dayLabel(date, today) {
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  if (dayKey(date) === dayKey(today)) return 'Today';
+  if (dayKey(date) === dayKey(yesterday)) return 'Yesterday';
   return dayFormatter.format(date);
 }
 
@@ -30,62 +33,111 @@ function clearError() {
   errorEl.hidden = true;
 }
 
-function render(entries) {
-  feed.replaceChildren();
+const byTimeAsc = (a, b) => new Date(a.timestamp) - new Date(b.timestamp);
 
-  if (entries.length === 0) {
-    const empty = document.createElement('p');
-    empty.className = 'empty';
-    empty.textContent = 'Nothing logged yet. Type something above and press Enter.';
-    feed.append(empty);
-    return;
+async function render() {
+  const entries = await storage.getEntries();
+  const today = new Date();
+  const todayKey = dayKey(today);
+
+  // Group by local day.
+  const groups = new Map();
+  for (const entry of [...entries].sort(byTimeAsc)) {
+    const date = new Date(entry.timestamp);
+    const key = dayKey(date);
+    if (!groups.has(key)) groups.set(key, { date, entries: [] });
+    groups.get(key).entries.push(entry);
   }
 
-  // Oldest first, so the newest entry sits at the bottom next to the input.
-  const sorted = [...entries].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+  feed.replaceChildren();
 
-  let currentDay = null;
-  for (const entry of sorted) {
-    const date = new Date(entry.timestamp);
-    const day = date.toDateString();
+  // 1. Today, always expanded, at the top under the input.
+  const todayGroup = groups.get(todayKey);
+  const todaySection = document.createElement('section');
+  todaySection.className = 'today';
+  if (todayGroup) {
+    todayGroup.entries.forEach((e) => todaySection.append(renderEntry(e)));
+  } else {
+    const empty = document.createElement('p');
+    empty.className = 'empty';
+    empty.textContent = 'Nothing logged today yet.';
+    todaySection.append(empty);
+  }
+  feed.append(todaySection);
 
-    if (day !== currentDay) {
-      currentDay = day;
-      const heading = document.createElement('h2');
-      heading.className = 'day-heading';
-      heading.textContent = dayLabel(date);
-      feed.append(heading);
+  // 2. Visual break, then past days as concertinas, oldest at top, newest at bottom.
+  const pastKeys = [...groups.keys()].filter((k) => k !== todayKey).sort();
+  if (pastKeys.length) {
+    const divider = document.createElement('div');
+    divider.className = 'divider';
+    feed.append(divider);
+
+    for (const key of pastKeys) {
+      feed.append(renderDay(groups.get(key), today));
     }
-
-    feed.append(renderEntry(entry, date));
   }
 }
 
-function renderEntry(entry, date) {
+function renderDay(group, today) {
+  const details = document.createElement('details');
+  details.className = 'day';
+  details.dataset.day = dayKey(group.date);
+  details.open = openDays.has(details.dataset.day);
+
+  details.addEventListener('toggle', () => {
+    if (details.open) openDays.add(details.dataset.day);
+    else openDays.delete(details.dataset.day);
+  });
+
+  const summary = document.createElement('summary');
+  const moods = group.entries.map((e) => e.mood).filter((m) => m !== null);
+  const avg = moods.length ? ` · avg mood ${(moods.reduce((a, b) => a + b, 0) / moods.length).toFixed(1)}` : '';
+  summary.textContent = `${dayLabel(group.date, today)} · ${group.entries.length} ${group.entries.length === 1 ? 'entry' : 'entries'}${avg}`;
+  details.append(summary);
+
+  const content = document.createElement('div');
+  content.className = 'day-content';
+  group.entries.forEach((e) => content.append(renderEntry(e)));
+  details.append(content);
+
+  return details;
+}
+
+function renderEntry(entry) {
   const card = document.createElement('article');
   card.className = 'entry';
 
+  const date = new Date(entry.timestamp);
   const time = document.createElement('div');
   time.className = 'entry-time';
   time.textContent = timeFormatter.format(date);
 
   const body = document.createElement('div');
   body.className = 'entry-body';
+  body.tabIndex = 0;
+  body.setAttribute('role', 'button');
+  body.setAttribute('aria-label', 'Edit entry');
 
   const text = document.createElement('p');
   text.className = 'entry-text';
   text.textContent = entry.cleanText;
+  body.append(text);
 
-  const meta = document.createElement('div');
-  meta.className = 'entry-meta';
   const parts = [];
   if (entry.mood !== null) parts.push(`Mood ${entry.mood}/5`);
   parts.push(...entry.activities.map((a) => `@${a}`));
   parts.push(...entry.tags.map((t) => `#${t}`));
-  meta.textContent = parts.join('  ·  ');
+  if (parts.length) {
+    const meta = document.createElement('div');
+    meta.className = 'entry-meta';
+    meta.textContent = parts.join('  ·  ');
+    body.append(meta);
+  }
 
-  body.append(text);
-  if (parts.length) body.append(meta);
+  body.addEventListener('click', () => startEdit(card, entry));
+  body.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') startEdit(card, entry);
+  });
 
   const del = document.createElement('button');
   del.className = 'delete';
@@ -94,17 +146,72 @@ function renderEntry(entry, date) {
   del.textContent = '×';
   del.addEventListener('click', async () => {
     await storage.deleteEntry(entry.id);
-    await refresh();
+    await render();
   });
 
   card.append(time, body, del);
   return card;
 }
 
-async function refresh() {
-  render(await storage.getEntries());
-  // Keep the newest entry visible at the bottom of the feed.
-  window.scrollTo({ top: document.body.scrollHeight });
+function startEdit(card, entry) {
+  if (card.classList.contains('editing')) return;
+  card.classList.add('editing');
+  card.replaceChildren();
+
+  const editor = document.createElement('div');
+  editor.className = 'editor';
+
+  const field = document.createElement('input');
+  field.type = 'text';
+  field.className = 'edit-input';
+  field.value = entry.rawText;
+  field.setAttribute('aria-label', 'Edit entry text');
+
+  const error = document.createElement('p');
+  error.className = 'error';
+  error.hidden = true;
+
+  const actions = document.createElement('div');
+  actions.className = 'edit-actions';
+
+  const cancel = document.createElement('button');
+  cancel.type = 'button';
+  cancel.className = 'secondary';
+  cancel.textContent = 'Cancel';
+
+  const save = document.createElement('button');
+  save.type = 'button';
+  save.className = 'primary';
+  save.textContent = 'Save';
+
+  actions.append(cancel, save);
+  editor.append(field, error, actions);
+  card.append(editor);
+  field.focus();
+
+  const finish = () => render();
+
+  const doSave = async () => {
+    const raw = field.value.trim();
+    if (!raw) return;
+    const parsed = parseEntry(raw, new Date(entry.timestamp));
+    if (!parsed.cleanText) {
+      error.textContent = 'Add a few words about what you did, not just a date or tag.';
+      error.hidden = false;
+      return;
+    }
+    // If no date is typed in the edit, keep the original time.
+    const changes = parsed.dateFound ? parsed : { ...parsed, timestamp: entry.timestamp };
+    await storage.updateEntry(entry.id, changes);
+    await finish();
+  };
+
+  cancel.addEventListener('click', finish);
+  save.addEventListener('click', doSave);
+  field.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') doSave();
+    if (e.key === 'Escape') finish();
+  });
 }
 
 form.addEventListener('submit', async (event) => {
@@ -122,7 +229,7 @@ form.addEventListener('submit', async (event) => {
 
   await storage.addEntry(parsed);
   input.value = '';
-  await refresh();
+  await render();
 });
 
-refresh();
+render();

@@ -68,4 +68,29 @@ test('timestamp includes an offset', () => {
   assert.match(e.timestamp, /[+-]\d{2}:\d{2}$/);
 });
 
+test('12.30 is read as a time when it is clearly one', () => {
+  const e = parseEntry('Lunch at 12.30 @food', NOW);
+  assert.ok(e.timestamp.startsWith('2026-11-19T12:30'), e.timestamp);
+  assert.equal(e.cleanText, 'Lunch');
+  assert.equal(e.dateFound, true);
+});
+
+test('12.30pm is read as a time', () => {
+  const e = parseEntry('Meeting 12.30pm', NOW);
+  assert.ok(e.timestamp.startsWith('2026-11-19T12:30'), e.timestamp);
+});
+
+test('prices and distances are not turned into times', () => {
+  const price = parseEntry('Coffee £3.50 @coffee', NOW);
+  assert.ok(price.cleanText.includes('£3.50'), price.cleanText);
+  assert.equal(price.dateFound, false);
+
+  const run = parseEntry('Ran 10.45 miles', NOW);
+  assert.ok(run.cleanText.includes('10.45'), run.cleanText);
+});
+
+test('dateFound is false when no date is typed', () => {
+  assert.equal(parseEntry('Just a note', NOW).dateFound, false);
+});
+
 console.log(`\n${passed} passed`);

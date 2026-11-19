@@ -14,12 +14,29 @@ const ACTIVITY_RE = /(?<!\S)@([\p{L}\p{N}_-]+)/gu;
 const TAG_RE = /(?<!\S)#([\p{L}\p{N}_-]+)/gu;
 
 /**
+ * Turns "12.30" into "12:30" when it is clearly a time:
+ * either followed by am/pm, or preceded by at/by/from/until/till/before/after.
+ * Leaves prices (£3.50) and distances (10.45 miles) alone.
+ */
+function normaliseDotTimes(text) {
+  return text.replace(/(?<![\d.:£$€])(\d{1,2})\.(\d{2})(?![\d:])/g, (match, h, m, offset, str) => {
+    if (Number(h) > 23 || Number(m) > 59) return match;
+    const before = str.slice(0, offset);
+    const after = str.slice(offset + match.length);
+    const hasAmPm = /^\s*[ap]\.?m\b/i.test(after);
+    const hasKeyword = /\b(?:at|by|from|until|till|before|after)\s+$/i.test(before);
+    return hasAmPm || hasKeyword ? `${h}:${m}` : match;
+  });
+}
+
+/**
  * @param {string} raw        the text exactly as typed
  * @param {Date}   [now]      reference time, injectable for tests
  * @returns {{
  *   rawText: string,
  *   cleanText: string,
  *   timestamp: string,
+ *   dateFound: boolean,
  *   mood: number | null,
  *   activities: string[],
  *   tags: string[]
@@ -50,18 +67,29 @@ export function parseEntry(raw, now = new Date()) {
   });
 
   // 3. Date and time. Use the first date chrono finds and cut it out of the text.
+  text = normaliseDotTimes(text);
+
   let when = now;
+  let dateFound = false;
   const found = dateParser.parse(text, now);
   if (found.length > 0) {
     const first = found[0];
     when = first.start.date();
+    dateFound = true;
     text = text.slice(0, first.index) + ' ' + text.slice(first.index + first.text.length);
   }
 
+  // Drop a connector left dangling by the removed time, e.g. "Lunch at".
+  const cleanText = text
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\s+(?:at|on|by|from|until|till|before|after)$/i, '');
+
   return {
     rawText: raw,
-    cleanText: text.replace(/\s+/g, ' ').trim(),
+    cleanText,
     timestamp: toLocalIsoWithOffset(when),
+    dateFound,
     mood,
     activities: [...new Set(activities)],
     tags: [...new Set(tags)],
