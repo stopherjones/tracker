@@ -1,0 +1,131 @@
+:root {
+  color-scheme: light dark;
+  --bg: #fafafa;
+  --surface: #ffffff;
+  --text: #1c1c1e;
+  --muted: #6e6e73;
+  --accent: #2f6fed;
+  --danger: #c62828;
+  --border: #e2e2e6;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121214;
+    --surface: #1e1e21;
+    --text: #f2f2f4;
+    --muted: #98989f;
+    --border: #2c2c30;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: inherit;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.4;
+}
+
+main {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+#entry-input {
+  width: 100%;
+  font: inherit;
+  font-size: 17px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+#entry-input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.error {
+  color: var(--danger);
+  font-size: 14px;
+  margin: 8px 4px 0;
+}
+
+#feed {
+  margin-top: 24px;
+}
+
+.day-heading {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 20px 4px 8px;
+}
+
+.entry {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.entry-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.entry-text {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.entry-meta {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.entry-time {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.delete {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 18px;
+  padding: 0 4px;
+  cursor: pointer;
+}
+
+.delete:hover {
+  color: var(--danger);
+}
+
+.empty {
+  color: var(--muted);
+  text-align: center;
+  margin-top: 40px;
+}

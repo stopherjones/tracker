@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Tracker</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "chrono-node": "https://esm.sh/chrono-node@2"
+    }
+  }
+  </script>
+</head>
+<body>
+  <main>
+    <form id="entry-form" autocomplete="off">
+      <input
+        id="entry-input"
+        type="text"
+        placeholder="Long walk yesterday 5pm m:4 @walk #outdoors"
+        autofocus
+        enterkeyhint="done"
+      >
+      <p id="error" class="error" hidden></p>
+    </form>
+
+    <section id="feed"></section>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
