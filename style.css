@@ -217,3 +217,122 @@ main {
   text-align: center;
   margin: 24px 0;
 }
+
+/* Export button on screen */
+.export-row {
+  margin-top: 32px;
+  text-align: center;
+}
+
+.export-row button {
+  font: inherit;
+  padding: 10px 18px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+/* Weekly grid: hidden on screen, shown only when printing */
+#week-print {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 8mm;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  main,
+  .no-print {
+    display: none !important;
+  }
+
+  #week-print {
+    display: block;
+    color: #1c1c1e;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+
+  #week-print h1 {
+    color: #c97a00;
+    font-size: 26pt;
+    text-align: center;
+    margin: 0 0 2mm;
+  }
+
+  #week-print .range {
+    text-align: center;
+    color: #6e6e73;
+    font-size: 10pt;
+    margin: 0 0 4mm;
+  }
+
+  #week-print table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+
+  #week-print th,
+  #week-print td {
+    border: 1px solid #d0d0d4;
+    padding: 2mm;
+    vertical-align: top;
+    overflow: hidden;
+    word-break: break-word;
+  }
+
+  #week-print thead th {
+    background: #ffa31f;
+    color: #3a2a00;
+    font-size: 12pt;
+    font-weight: 700;
+    text-align: left;
+    height: 14mm;
+  }
+
+  #week-print th.band {
+    background: #fde3cc;
+    color: #3a2a00;
+    font-size: 12pt;
+    font-weight: 400;
+    text-align: left;
+    width: 22mm;
+  }
+
+  #week-print tbody td {
+    height: 42mm;
+    font-size: 9pt;
+    line-height: 1.2;
+    position: relative;
+  }
+
+  #week-print td p {
+    margin: 0 0 1.5mm;
+  }
+
+  #week-print .more {
+    color: #6e6e73;
+    font-style: italic;
+  }
+
+  #week-print .cell-mood {
+    position: absolute;
+    right: 2mm;
+    bottom: 1.5mm;
+    font-size: 10pt;
+    font-weight: 700;
+    margin: 0;
+  }
+
+  #week-print .mood-good { color: #15803d; }
+  #week-print .mood-ok { color: #1d4ed8; }
+  #week-print .mood-low { color: #b91c1c; }
+}

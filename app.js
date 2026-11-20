@@ -1,6 +1,7 @@
 // app.js
 import { parseEntry } from './parser.js';
 import { storage } from './storage.js';
+import { renderWeekPrint } from './export.js';
 
 const form = document.getElementById('entry-form');
 const input = document.getElementById('entry-input');
@@ -230,6 +231,12 @@ form.addEventListener('submit', async (event) => {
   await storage.addEntry(parsed);
   input.value = '';
   await render();
+});
+
+document.getElementById('export-week').addEventListener('click', async () => {
+  const entries = await storage.getEntries();
+  renderWeekPrint(document.getElementById('week-print'), entries);
+  window.print();
 });
 
 render();
