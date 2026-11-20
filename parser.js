@@ -12,6 +12,8 @@ const dateParser = chrono.en.GB;
 const MOOD_RE = /(?<!\S)m:([1-5])(?!\S)/i;
 const ACTIVITY_RE = /(?<!\S)@([\p{L}\p{N}_-]+)/gu;
 const TAG_RE = /(?<!\S)#([\p{L}\p{N}_-]+)/gu;
+// A standalone * marks a bigger activity. These are shown first when a cell is full.
+const IMPORTANT_RE = /(?<!\S)\*(?!\S)/g;
 
 /**
  * Turns "12.30" into "12:30" when it is clearly a time:
@@ -37,6 +39,7 @@ function normaliseDotTimes(text) {
  *   cleanText: string,
  *   timestamp: string,
  *   dateFound: boolean,
+ *   important: boolean,
  *   mood: number | null,
  *   activities: string[],
  *   tags: string[]
@@ -66,6 +69,10 @@ export function parseEntry(raw, now = new Date()) {
     return ' ';
   });
 
+  // 2b. Starred entries are priority for the export.
+  const important = text.match(IMPORTANT_RE) !== null;
+  text = text.replace(IMPORTANT_RE, ' ');
+
   // 3. Date and time. Use the first date chrono finds and cut it out of the text.
   text = normaliseDotTimes(text);
 
@@ -90,6 +97,7 @@ export function parseEntry(raw, now = new Date()) {
     cleanText,
     timestamp: toLocalIsoWithOffset(when),
     dateFound,
+    important,
     mood,
     activities: [...new Set(activities)],
     tags: [...new Set(tags)],

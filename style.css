@@ -340,3 +340,7 @@ main {
   #week-print .mood-ok { color: #1d4ed8; }
   #week-print .mood-low { color: #b91c1c; }
 }
+
+.entry-text.starred {
+  font-weight: 600;
+}

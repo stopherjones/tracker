@@ -1,7 +1,7 @@
 // app.js
 import { parseEntry } from './parser.js';
 import { storage } from './storage.js';
-import { renderWeekPrint } from './export.js';
+import { exportWeekPdf } from './export.js';
 
 const form = document.getElementById('entry-form');
 const input = document.getElementById('entry-input');
@@ -122,6 +122,7 @@ function renderEntry(entry) {
   const text = document.createElement('p');
   text.className = 'entry-text';
   text.textContent = entry.cleanText;
+  if (entry.important) text.classList.add('starred');
   body.append(text);
 
   const parts = [];
@@ -235,8 +236,7 @@ form.addEventListener('submit', async (event) => {
 
 document.getElementById('export-week').addEventListener('click', async () => {
   const entries = await storage.getEntries();
-  renderWeekPrint(document.getElementById('week-print'), entries);
-  window.print();
+  exportWeekPdf(entries);
 });
 
 render();

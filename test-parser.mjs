@@ -93,4 +93,17 @@ test('dateFound is false when no date is typed', () => {
   assert.equal(parseEntry('Just a note', NOW).dateFound, false);
 });
 
+test('standalone * marks an important entry and is removed from the text', () => {
+  const e = parseEntry('Went out for dinner * @food', NOW);
+  assert.equal(e.important, true);
+  assert.equal(e.cleanText, 'Went out for dinner');
+  assert.deepEqual(e.activities, ['food']);
+});
+
+test('entries without * are not important', () => {
+  const e = parseEntry('Quick email #work', NOW);
+  assert.equal(e.important, false);
+  assert.deepEqual(e.tags, ['work']);
+});
+
 console.log(`\n${passed} passed`);
