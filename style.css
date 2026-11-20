@@ -256,6 +256,9 @@ main {
 
   #week-print {
     display: block;
+    width: 281mm; /* A4 landscape width minus 8mm margins each side */
+    max-width: 281mm;
+    overflow: hidden;
     color: #1c1c1e;
     font-family: Arial, Helvetica, sans-serif;
   }
@@ -276,6 +279,7 @@ main {
 
   #week-print table {
     width: 100%;
+    max-width: 100%;
     border-collapse: collapse;
     table-layout: fixed;
   }

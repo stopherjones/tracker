@@ -100,6 +100,17 @@ export function renderWeekPrint(container, entries, now = new Date()) {
 
   const table = document.createElement('table');
 
+  // Explicit column widths so seven day columns always fit the page width.
+  const colgroup = document.createElement('colgroup');
+  const bandCol = document.createElement('col');
+  bandCol.style.width = '12%';
+  colgroup.append(bandCol);
+  for (let i = 0; i < grid.length; i++) {
+    const col = document.createElement('col');
+    col.style.width = `${88 / grid.length}%`;
+    colgroup.append(col);
+  }
+
   const thead = document.createElement('thead');
   const headRow = document.createElement('tr');
   headRow.append(document.createElement('th'));
@@ -123,6 +134,6 @@ export function renderWeekPrint(container, entries, now = new Date()) {
     tbody.append(row);
   }
 
-  table.append(thead, tbody);
+  table.append(colgroup, thead, tbody);
   container.replaceChildren(title, range, table);
 }
