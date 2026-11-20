@@ -40,8 +40,9 @@ function normaliseDotTimes(text) {
  *   timestamp: string,
  *   dateFound: boolean,
  *   important: boolean,
+ *   hobby: boolean,
  *   mood: number | null,
- *   activities: string[],
+ *   hobbies: string[],
  *   tags: string[]
  * }}
  */
@@ -57,10 +58,11 @@ export function parseEntry(raw, now = new Date()) {
   }
 
   // 2. Activities and tags. Collected in order, duplicates removed.
-  const activities = [];
+  // @word marks a hobby. The word stays in the sentence, so multi-word text is kept whole.
+  const hobbies = [];
   text = text.replace(ACTIVITY_RE, (_, name) => {
-    activities.push(name.toLowerCase());
-    return ' ';
+    hobbies.push(name.toLowerCase());
+    return name;
   });
 
   const tags = [];
@@ -92,14 +94,19 @@ export function parseEntry(raw, now = new Date()) {
     .trim()
     .replace(/\s+(?:at|on|by|from|until|till|before|after)$/i, '');
 
+  // An entry made only of @hobby words is a hobby entry: the whole line is the hobby.
+  const words = cleanText.split(' ').filter(Boolean).map((w) => w.toLowerCase());
+  const hobby = hobbies.length > 0 && words.length > 0 && words.every((w) => hobbies.includes(w));
+
   return {
     rawText: raw,
     cleanText,
     timestamp: toLocalIsoWithOffset(when),
     dateFound,
     important,
+    hobby,
     mood,
-    activities: [...new Set(activities)],
+    hobbies: [...new Set(hobbies)],
     tags: [...new Set(tags)],
   };
 }

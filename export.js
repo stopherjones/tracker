@@ -1,3 +1,4 @@
+import { splitHobbies } from './hobbies.js';
 // export.js
 // Builds the one-page weekly PDF with jsPDF (loaded in index.html).
 // Last 7 complete days across; Morning / Afternoon / Evening down.
@@ -36,6 +37,7 @@ const C = {
   low: [185, 28, 28],
   pill: [240, 236, 228],
   header: [255, 243, 224],
+  hobby: [253, 230, 138],
 };
 
 const dayKey = (date) => date.toLocaleDateString('en-CA'); // YYYY-MM-DD, local time
@@ -162,7 +164,20 @@ function drawCell(doc, list, x, y, w, h) {
 
     doc.setFont('helvetica', e.important ? 'bold' : 'normal');
     doc.setTextColor(...moodColour(e.mood));
-    doc.text(lines, innerX, cy + 2.6);
+    // Draw each line piece by piece, shading hobby words behind the text.
+    lines.forEach((line, n) => {
+      const base = cy + 2.6 + n * LINE_H;
+      let x = innerX;
+      for (const piece of (e.hobby ? [{ text: line, hobby: true }] : splitHobbies(line, e.hobbies))) {
+        const w = doc.getTextWidth(piece.text);
+        if (piece.hobby) {
+          doc.setFillColor(...C.hobby);
+          doc.rect(x, base - 2.4, w, LINE_H, 'F');
+        }
+        doc.text(piece.text, x, base);
+        x += w;
+      }
+    });
     cy += needed;
     shown++;
   }

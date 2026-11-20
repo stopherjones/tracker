@@ -387,3 +387,11 @@ main {
 .backup-status.warn {
   color: var(--danger);
 }
+
+/* Hobby words in an entry */
+mark.hobby {
+  background: #fde68a;
+  color: #1c1c1e;
+  border-radius: 3px;
+  padding: 0 2px;
+}

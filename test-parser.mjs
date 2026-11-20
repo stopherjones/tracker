@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { parseEntry } from './parser.js';
 import { suggestionsFor, applySuggestion } from './suggest.js';
 import { parseBackup } from './backup.js';
+import { splitHobbies } from './hobbies.js';
 
 const NOW = new Date(2026, 10, 19, 10, 0, 0); // 19 Nov 2026, 10:00 local
 
@@ -21,24 +22,37 @@ function test(name, fn) {
   }
 }
 
-test('full example: date, mood, activity, tag', () => {
-  const e = parseEntry('Went for a long walk yesterday 5pm m:4 @walk #outdoors', NOW);
+test('full example: date, mood, hobby, tag', () => {
+  const e = parseEntry('Went for a long @walk yesterday 5pm m:4 #outdoors', NOW);
   assert.equal(e.cleanText, 'Went for a long walk');
   assert.equal(e.mood, 4);
-  assert.deepEqual(e.activities, ['walk']);
+  assert.deepEqual(e.hobbies, ['walk']);
   assert.deepEqual(e.tags, ['outdoors']);
   assert.ok(e.timestamp.startsWith('2026-11-18T17:00:00'), e.timestamp);
 });
 
-test('multiple activities, duplicates removed', () => {
-  const e = parseEntry('Coffee @coffee @work @Coffee m:3', NOW);
-  assert.equal(e.cleanText, 'Coffee');
-  assert.deepEqual(e.activities, ['coffee', 'work']);
-  assert.equal(e.mood, 3);
+test('a hobby inside a sentence stays in the sentence, not a hobby entry', () => {
+  const e = parseEntry('Spent the evening @painting the hallway m:4', NOW);
+  assert.equal(e.cleanText, 'Spent the evening painting the hallway');
+  assert.deepEqual(e.hobbies, ['painting']);
+  assert.equal(e.hobby, false);
+});
+
+test('"6pm @painting" is a hobby entry with the hobby as its text', () => {
+  const e = parseEntry('6pm @painting', NOW);
+  assert.equal(e.cleanText, 'painting');
+  assert.equal(e.hobby, true);
+  assert.ok(e.timestamp.startsWith('2026-11-19T18:00'), e.timestamp);
+});
+
+test('repeated hobbies are de-duplicated', () => {
+  const e = parseEntry('Coffee with @work and @work m:3', NOW);
+  assert.deepEqual(e.hobbies, ['work']);
+  assert.equal(e.cleanText, 'Coffee with work and work');
 });
 
 test('no mood token gives null, not 0', () => {
-  const e = parseEntry('Quiet afternoon @reading', NOW);
+  const e = parseEntry('Quiet afternoon', NOW);
   assert.equal(e.mood, null);
 });
 
@@ -48,9 +62,9 @@ test('out-of-range mood is left in the text, not parsed', () => {
   assert.ok(e.cleanText.includes('m:9'), e.cleanText);
 });
 
-test('@ inside an email address is not an activity', () => {
+test('@ inside an email address is not a hobby', () => {
   const e = parseEntry('Emailed me@example.com about the trip', NOW);
-  assert.deepEqual(e.activities, []);
+  assert.deepEqual(e.hobbies, []);
   assert.ok(e.cleanText.includes('me@example.com'), e.cleanText);
 });
 
@@ -71,7 +85,7 @@ test('timestamp includes an offset', () => {
 });
 
 test('12.30 is read as a time when it is clearly one', () => {
-  const e = parseEntry('Lunch at 12.30 @food', NOW);
+  const e = parseEntry('Lunch at 12.30', NOW);
   assert.ok(e.timestamp.startsWith('2026-11-19T12:30'), e.timestamp);
   assert.equal(e.cleanText, 'Lunch');
   assert.equal(e.dateFound, true);
@@ -83,7 +97,7 @@ test('12.30pm is read as a time', () => {
 });
 
 test('prices and distances are not turned into times', () => {
-  const price = parseEntry('Coffee £3.50 @coffee', NOW);
+  const price = parseEntry('Coffee £3.50', NOW);
   assert.ok(price.cleanText.includes('£3.50'), price.cleanText);
   assert.equal(price.dateFound, false);
 
@@ -98,8 +112,8 @@ test('dateFound is false when no date is typed', () => {
 test('standalone * marks an important entry and is removed from the text', () => {
   const e = parseEntry('Went out for dinner * @food', NOW);
   assert.equal(e.important, true);
-  assert.equal(e.cleanText, 'Went out for dinner');
-  assert.deepEqual(e.activities, ['food']);
+  assert.equal(e.cleanText, 'Went out for dinner food');
+  assert.deepEqual(e.hobbies, ['food']);
 });
 
 test('entries without * are not important', () => {
@@ -135,6 +149,11 @@ test('#w filters tags by prefix', () => {
   assert.deepEqual(suggestionsFor('#w', entries).map((c) => c.insert), ['#wfh']);
 });
 
+test('@ offers hobbies from history', () => {
+  const entries = [{ hobbies: ['painting'] }, { hobbies: ['gaming'] }, { hobbies: ['gaming'] }];
+  assert.deepEqual(suggestionsFor('@', entries).map((c) => c.insert), ['@gaming', '@painting']);
+});
+
 test('ordinary words give no suggestions', () => {
   assert.deepEqual(suggestionsFor('meeting', []), []);
 });
@@ -145,7 +164,7 @@ test('choosing a chip replaces the partial word and adds a space', () => {
 
 test('backup file: valid entries kept, invalid ones counted', () => {
   const text = JSON.stringify({ format: 'tracker-backup', version: 1, entries: [
-    { id: '1', rawText: 'walk m:4', cleanText: 'walk', timestamp: '2026-11-18T17:00:00+00:00', mood: 4, activities: ['walk'], tags: [] },
+    { id: '1', rawText: 'walk m:4', cleanText: 'walk', timestamp: '2026-11-18T17:00:00+00:00', mood: 4, hobbies: ['walk'], tags: [] },
     { id: '2', timestamp: 'not a date', mood: 9 },
   ] });
   const r = parseBackup(text);
@@ -155,6 +174,18 @@ test('backup file: valid entries kept, invalid ones counted', () => {
 
 test('a file that is not a backup is rejected', () => {
   assert.throws(() => parseBackup('{"hello":1}'), /does not look like a tracker backup/);
+});
+
+test('hobby words are split out of the text for highlighting', () => {
+  assert.deepEqual(splitHobbies('Painting the hall', ['painting']), [
+    { text: 'Painting', hobby: true },
+    { text: ' the hall', hobby: false },
+  ]);
+});
+
+test('highlighting matches whole words only', () => {
+  const pieces = splitHobbies('gaming and gamingly', ['gaming']);
+  assert.deepEqual(pieces.filter((p) => p.hobby).map((p) => p.text), ['gaming']);
 });
 
 console.log(`\n${passed} passed`);

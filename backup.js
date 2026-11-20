@@ -35,7 +35,7 @@ function isValidEntry(e) {
     typeof e.rawText === 'string' &&
     typeof e.cleanText === 'string' &&
     Array.isArray(e.tags) &&
-    Array.isArray(e.activities) &&
+    (e.hobbies === undefined || Array.isArray(e.hobbies)) &&
     (e.mood === null || (Number.isInteger(e.mood) && e.mood >= 1 && e.mood <= 5))
   );
 }

@@ -47,10 +47,10 @@ export function suggestionsFor(text, entries) {
       .map((t) => ({ label: `#${t}`, insert: `#${t}` }));
   }
 
-  // Activities: same as tags, with @.
+  // Hobbies: same as tags, with @.
   if (token.startsWith('@')) {
     const prefix = lower.slice(1);
-    return rankedByUse(entries, 'activities')
+    return rankedByUse(entries, 'hobbies')
       .filter((a) => a.startsWith(prefix) && a !== prefix)
       .slice(0, MAX_CHIPS)
       .map((a) => ({ label: `@${a}`, insert: `@${a}` }));
