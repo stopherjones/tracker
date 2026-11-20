@@ -4,6 +4,7 @@
 import assert from 'node:assert/strict';
 import { parseEntry } from './parser.js';
 import { suggestionsFor, applySuggestion } from './suggest.js';
+import { parseBackup } from './backup.js';
 
 const NOW = new Date(2026, 10, 19, 10, 0, 0); // 19 Nov 2026, 10:00 local
 
@@ -140,6 +141,20 @@ test('ordinary words give no suggestions', () => {
 
 test('choosing a chip replaces the partial word and adds a space', () => {
   assert.equal(applySuggestion('Quick #w', '#wfh'), 'Quick #wfh ');
+});
+
+test('backup file: valid entries kept, invalid ones counted', () => {
+  const text = JSON.stringify({ format: 'tracker-backup', version: 1, entries: [
+    { id: '1', rawText: 'walk m:4', cleanText: 'walk', timestamp: '2026-11-18T17:00:00+00:00', mood: 4, activities: ['walk'], tags: [] },
+    { id: '2', timestamp: 'not a date', mood: 9 },
+  ] });
+  const r = parseBackup(text);
+  assert.equal(r.entries.length, 1);
+  assert.equal(r.invalid, 1);
+});
+
+test('a file that is not a backup is rejected', () => {
+  assert.throws(() => parseBackup('{"hello":1}'), /does not look like a tracker backup/);
 });
 
 console.log(`\n${passed} passed`);

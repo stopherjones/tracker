@@ -3,11 +3,14 @@ import { parseEntry } from './parser.js';
 import { storage } from './storage.js';
 import { exportWeekPdf } from './export.js';
 import { suggestionsFor, applySuggestion } from './suggest.js';
+import { exportBackup, parseBackup, LAST_EXPORT_KEY } from './backup.js';
 
 const form = document.getElementById('entry-form');
 const input = document.getElementById('entry-input');
 const errorEl = document.getElementById('error');
 const suggestionsEl = document.getElementById('suggestions');
+const backupStatus = document.getElementById('backup-status');
+const importFile = document.getElementById('import-file');
 const feed = document.getElementById('feed');
 
 // Which past days are expanded. Kept across re-renders so the view doesn't collapse.
@@ -54,6 +57,19 @@ async function updateSuggestions() {
 }
 
 input.addEventListener('input', updateSuggestions);
+
+// Tells the user how long since the last backup, and warns after two weeks.
+function showBackupStatus() {
+  const last = localStorage.getItem(LAST_EXPORT_KEY);
+  if (!last) {
+    backupStatus.textContent = 'No backup yet. Back up your entries to protect them.';
+    backupStatus.classList.add('warn');
+    return;
+  }
+  const days = Math.floor((Date.now() - Date.parse(last)) / 86400000);
+  backupStatus.textContent = days === 0 ? 'Last backup: today' : `Last backup: ${days} day${days === 1 ? '' : 's'} ago`;
+  backupStatus.classList.toggle('warn', days >= 14);
+}
 
 function showError(message) {
   errorEl.textContent = message;
@@ -271,4 +287,32 @@ document.getElementById('export-week').addEventListener('click', async () => {
   exportWeekPdf(entries);
 });
 
+document.getElementById('export-backup').addEventListener('click', async () => {
+  exportBackup(await storage.getEntries());
+  showBackupStatus();
+});
+
+document.getElementById('import-backup').addEventListener('click', () => importFile.click());
+
+importFile.addEventListener('change', async () => {
+  const file = importFile.files[0];
+  importFile.value = '';
+  if (!file) return;
+  try {
+    const { entries, invalid } = parseBackup(await file.text());
+    const { added, duplicates } = await storage.mergeEntries(entries);
+    let message = `Restored ${added} new ${added === 1 ? 'entry' : 'entries'}`;
+    if (duplicates) message += `, ${duplicates} already on this device`;
+    if (invalid) message += `, ${invalid} skipped as invalid`;
+    backupStatus.textContent = `${message}.`;
+    backupStatus.classList.remove('warn');
+    await render();
+    await updateSuggestions();
+  } catch (err) {
+    backupStatus.textContent = err.message;
+    backupStatus.classList.add('warn');
+  }
+});
+
 render();
+showBackupStatus();

@@ -49,6 +49,21 @@ export const storage = {
     save(entries);
   },
 
+  // Adds entries whose id isn't already stored. Existing entries are never overwritten.
+  async mergeEntries(incoming) {
+    const existing = load();
+    const known = new Set(existing.map((e) => e.id));
+    const added = [];
+    for (const e of incoming) {
+      if (!known.has(e.id)) {
+        known.add(e.id);
+        added.push(e);
+      }
+    }
+    save([...existing, ...added]);
+    return { added: added.length, duplicates: incoming.length - added.length };
+  },
+
   async deleteEntry(id) {
     save(load().filter((e) => e.id !== id));
   },
