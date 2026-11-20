@@ -79,10 +79,15 @@ function buildGrid(entries, now) {
   return { days, grid };
 }
 
-// Starred first, then chronological.
+// Priority: starred (*), hobby (@), or with a mood (m:). Priority entries come
+// first, then chronological within each group.
+function isPriority(e) {
+  return Boolean(e.important) || (e.hobbies || []).length > 0 || (e.mood !== null && e.mood !== undefined);
+}
+
 function priorityOrder(list) {
   return [...list].sort(
-    (a, b) => (b.important ? 1 : 0) - (a.important ? 1 : 0) ||
+    (a, b) => (isPriority(b) ? 1 : 0) - (isPriority(a) ? 1 : 0) ||
       new Date(a.timestamp) - new Date(b.timestamp)
   );
 }
