@@ -106,4 +106,11 @@ test('entries without * are not important', () => {
   assert.deepEqual(e.tags, ['work']);
 });
 
+test('a tag-only entry has no text but keeps its tag and date', () => {
+  const e = parseEntry('#wfh yesterday afternoon', NOW);
+  assert.equal(e.cleanText, '');
+  assert.deepEqual(e.tags, ['wfh']);
+  assert.equal(e.dateFound, true);
+});
+
 console.log(`\n${passed} passed`);

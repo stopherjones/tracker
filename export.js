@@ -150,7 +150,7 @@ function drawCell(doc, list, x, y, w, h) {
   let cy = y + 2 + pillsUsed + (pillsUsed ? 2 : 0);
 
   // 2. Detailed activities, starred first. Stop when the next one won't fit.
-  const ordered = priorityOrder(list);
+  const ordered = priorityOrder(list.filter((e) => e.cleanText));
   let shown = 0;
   doc.setFontSize(8);
   for (let i = 0; i < ordered.length; i++) {

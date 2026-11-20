@@ -24,6 +24,11 @@ function dayLabel(date, today) {
   return dayFormatter.format(date);
 }
 
+// An entry is valid if it has any content: text, a tag, an activity or a mood.
+function hasContent(parsed) {
+  return Boolean(parsed.cleanText) || parsed.tags.length > 0 || parsed.activities.length > 0 || parsed.mood !== null;
+}
+
 function showError(message) {
   errorEl.textContent = message;
   errorEl.hidden = false;
@@ -123,7 +128,7 @@ function renderEntry(entry) {
   text.className = 'entry-text';
   text.textContent = entry.cleanText;
   if (entry.important) text.classList.add('starred');
-  body.append(text);
+  if (entry.cleanText) body.append(text);
 
   const parts = [];
   if (entry.mood !== null) parts.push(`Mood ${entry.mood}/5`);
@@ -197,8 +202,8 @@ function startEdit(card, entry) {
     const raw = field.value.trim();
     if (!raw) return;
     const parsed = parseEntry(raw, new Date(entry.timestamp));
-    if (!parsed.cleanText) {
-      error.textContent = 'Add a few words about what you did, not just a date or tag.';
+    if (!hasContent(parsed)) {
+      error.textContent = 'Add something to log: a few words, a #tag, an @activity or a mood.';
       error.hidden = false;
       return;
     }
@@ -224,8 +229,8 @@ form.addEventListener('submit', async (event) => {
   if (!raw) return;
 
   const parsed = parseEntry(raw);
-  if (!parsed.cleanText) {
-    showError('Add a few words about what you did, not just a date or tag.');
+  if (!hasContent(parsed)) {
+    showError('Add something to log: a few words, a #tag, an @activity or a mood.');
     return;
   }
 
