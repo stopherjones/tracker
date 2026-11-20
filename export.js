@@ -201,12 +201,16 @@ function drawTitle(doc, days) {
 }
 
 function drawTable(doc, grid) {
+  doc.setLineWidth(0.2);
   // Header row: corner, then one cell per day
   doc.setDrawColor(...C.border);
   doc.setFillColor(...C.header);
   doc.rect(MARGIN, TABLE_TOP, LABEL_W, HEADER_H, 'FD');
   grid.forEach((day, i) => {
     const x = MARGIN + LABEL_W + i * DAY_W;
+    // Set fill and stroke explicitly for every cell, so no earlier colour carries over.
+    doc.setFillColor(...C.header);
+    doc.setDrawColor(...C.border);
     doc.rect(x, TABLE_TOP, DAY_W, HEADER_H, 'FD');
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
