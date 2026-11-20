@@ -3,6 +3,7 @@
 // Fixed reference time so date tests don't depend on when you run them.
 import assert from 'node:assert/strict';
 import { parseEntry } from './parser.js';
+import { suggestionsFor, applySuggestion } from './suggest.js';
 
 const NOW = new Date(2026, 10, 19, 10, 0, 0); // 19 Nov 2026, 10:00 local
 
@@ -111,6 +112,34 @@ test('a tag-only entry has no text but keeps its tag and date', () => {
   assert.equal(e.cleanText, '');
   assert.deepEqual(e.tags, ['wfh']);
   assert.equal(e.dateFound, true);
+});
+
+test('typing m offers the five moods', () => {
+  const chips = suggestionsFor('Long walk m', []).map((c) => c.insert);
+  assert.deepEqual(chips, ['m:1', 'm:2', 'm:3', 'm:4', 'm:5']);
+});
+
+test('typing m:3 narrows to that mood', () => {
+  assert.deepEqual(suggestionsFor('m:3', []).map((c) => c.insert), ['m:3']);
+});
+
+test('# offers tags ranked by use', () => {
+  const entries = [{ tags: ['tv'] }, { tags: ['wfh'] }, { tags: ['wfh'] }];
+  const chips = suggestionsFor('Morning #', entries).map((c) => c.insert);
+  assert.deepEqual(chips, ['#wfh', '#tv']);
+});
+
+test('#w filters tags by prefix', () => {
+  const entries = [{ tags: ['tv'] }, { tags: ['wfh'] }];
+  assert.deepEqual(suggestionsFor('#w', entries).map((c) => c.insert), ['#wfh']);
+});
+
+test('ordinary words give no suggestions', () => {
+  assert.deepEqual(suggestionsFor('meeting', []), []);
+});
+
+test('choosing a chip replaces the partial word and adds a space', () => {
+  assert.equal(applySuggestion('Quick #w', '#wfh'), 'Quick #wfh ');
 });
 
 console.log(`\n${passed} passed`);

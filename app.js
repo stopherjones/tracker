@@ -2,10 +2,12 @@
 import { parseEntry } from './parser.js';
 import { storage } from './storage.js';
 import { exportWeekPdf } from './export.js';
+import { suggestionsFor, applySuggestion } from './suggest.js';
 
 const form = document.getElementById('entry-form');
 const input = document.getElementById('entry-input');
 const errorEl = document.getElementById('error');
+const suggestionsEl = document.getElementById('suggestions');
 const feed = document.getElementById('feed');
 
 // Which past days are expanded. Kept across re-renders so the view doesn't collapse.
@@ -28,6 +30,30 @@ function dayLabel(date, today) {
 function hasContent(parsed) {
   return Boolean(parsed.cleanText) || parsed.tags.length > 0 || parsed.activities.length > 0 || parsed.mood !== null;
 }
+
+// Chips for the word being typed (mood, #tags, @activities).
+async function updateSuggestions() {
+  const entries = await storage.getEntries();
+  const chips = suggestionsFor(input.value, entries);
+  suggestionsEl.replaceChildren(
+    ...chips.map((chip) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'chip';
+      button.textContent = chip.label;
+      // Keep focus in the input, so the phone keyboard stays open.
+      button.addEventListener('pointerdown', (e) => e.preventDefault());
+      button.addEventListener('click', () => {
+        input.value = applySuggestion(input.value, chip.insert);
+        input.focus();
+        updateSuggestions();
+      });
+      return button;
+    })
+  );
+}
+
+input.addEventListener('input', updateSuggestions);
 
 function showError(message) {
   errorEl.textContent = message;
@@ -237,6 +263,7 @@ form.addEventListener('submit', async (event) => {
   await storage.addEntry(parsed);
   input.value = '';
   await render();
+  await updateSuggestions();
 });
 
 document.getElementById('export-week').addEventListener('click', async () => {
