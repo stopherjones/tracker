@@ -1,10 +1,11 @@
-import { splitHobbies } from './hobbies.js';
 // export.js
-// Builds the one-page weekly PDF with jsPDF (loaded in index.html).
-// Last 7 complete days across; Morning / Afternoon / Evening down.
-// Each block shows context pills (from #tags) above the detailed activities.
-// Starred entries (*) are drawn first, and when a block runs out of room the
-// rest are counted as "+N more".
+// Builds the weekly PDF with jsPDF (loaded in index.html).
+// Page 1: last 7 complete days across; Morning / Afternoon / Evening down.
+//   Each block shows context pills (from #tags) above the detailed activities.
+//   Priority entries (*, @, or m:) are drawn first. Anything that doesn't fit is "+N more".
+// Page 2: every entry for each day in full, one column per day, in time order.
+
+import { splitHobbies, hobbyColours } from './hobbies.js';
 
 const BANDS = ['morning', 'afternoon', 'evening'];
 const BAND_LABELS = { morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening' };
@@ -22,10 +23,20 @@ const TABLE_TOP = MARGIN + TITLE_H;
 const BAND_H = (PAGE_H - MARGIN - TABLE_TOP - HEADER_H) / BANDS.length;
 
 const PILL_H = 4.2;
-const LINE_H = 3.3;      // line height for 8pt text
+const LINE_H = 3.3;      // line height for 8pt text on page 1
 const ENTRY_GAP = 1.2;
 const MORE_H = 3.6;
 const MOOD_RESERVE = 5;  // room at the bottom of a cell for the average
+const CELL_BOX = { ascent: 2.4, height: LINE_H };
+
+// Page 2 layout
+const DETAIL_COL_W = (PAGE_W - 2 * MARGIN) / COLS;
+const DETAIL_TOP = MARGIN + 14;
+const DETAIL_START = DETAIL_TOP + HEADER_H + 3;
+const DETAIL_FONT = 7.5;
+const DETAIL_LINE = 3.1;
+const DETAIL_GAP = 2.2;
+const DETAIL_BOX = { ascent: 2.2, height: DETAIL_LINE };
 
 const C = {
   border: [208, 208, 212],
@@ -43,6 +54,7 @@ const C = {
 const dayKey = (date) => date.toLocaleDateString('en-CA'); // YYYY-MM-DD, local time
 const dayHeader = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 const rangeFormat = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+const timeFormatter = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' });
 
 // Before 12:00 is Morning, 12:00 to 16:59 is Afternoon, 17:00 onwards is Evening.
 function bandFor(date) {
@@ -142,6 +154,27 @@ function drawPills(doc, tags, x, y, maxW) {
   return cy + PILL_H - y;
 }
 
+// Draws one line of text, shading hobby words. The font and size must already be set.
+// `box` gives the highlight's position and height for that font size.
+function drawLine(doc, line, e, x, base, box) {
+  const pieces = e.hobby
+    ? [{ text: line, hobby: true, name: (e.cleanText || '').toLowerCase() }]
+    : splitHobbies(line, e.hobbies);
+
+  let cx = x;
+  for (const piece of pieces) {
+    const w = doc.getTextWidth(piece.text);
+    const style = piece.hobby ? hobbyColours(piece.name) : null;
+    if (piece.hobby) {
+      doc.setFillColor(...(style ? style.fill : C.hobby));
+      doc.rect(cx, base - box.ascent, w, box.height, 'F');
+    }
+    doc.setTextColor(...(style ? style.text : moodColour(e.mood)));
+    doc.text(piece.text, cx, base);
+    cx += w;
+  }
+}
+
 function drawCell(doc, list, x, y, w, h) {
   doc.setDrawColor(...C.border);
   doc.rect(x, y, w, h);
@@ -156,33 +189,20 @@ function drawCell(doc, list, x, y, w, h) {
   const pillsUsed = drawPills(doc, cellTags(list), innerX, y + 2, innerW);
   let cy = y + 2 + pillsUsed + (pillsUsed ? 2 : 0);
 
-  // 2. Detailed activities, starred first. Stop when the next one won't fit.
-  const ordered = priorityOrder(list.filter((e) => e.cleanText));
+  // 2. Detailed activities, priority first. Stop when the next one won't fit.
+  const textEntries = list.filter((e) => e.cleanText);
+  const ordered = priorityOrder(textEntries);
   let shown = 0;
   doc.setFontSize(8);
   for (let i = 0; i < ordered.length; i++) {
     const e = ordered[i];
+    doc.setFont('helvetica', e.important ? 'bold' : 'normal');
     const lines = doc.splitTextToSize(e.cleanText, innerW);
     const needed = lines.length * LINE_H + ENTRY_GAP;
     const moreAfter = i < ordered.length - 1 ? MORE_H : 0;
     if (cy + needed + moreAfter > limit) break;
 
-    doc.setFont('helvetica', e.important ? 'bold' : 'normal');
-    doc.setTextColor(...moodColour(e.mood));
-    // Draw each line piece by piece, shading hobby words behind the text.
-    lines.forEach((line, n) => {
-      const base = cy + 2.6 + n * LINE_H;
-      let x = innerX;
-      for (const piece of (e.hobby ? [{ text: line, hobby: true }] : splitHobbies(line, e.hobbies))) {
-        const w = doc.getTextWidth(piece.text);
-        if (piece.hobby) {
-          doc.setFillColor(...C.hobby);
-          doc.rect(x, base - 2.4, w, LINE_H, 'F');
-        }
-        doc.text(piece.text, x, base);
-        x += w;
-      }
-    });
+    lines.forEach((line, n) => drawLine(doc, line, e, innerX, cy + 2.6 + n * LINE_H, CELL_BOX));
     cy += needed;
     shown++;
   }
@@ -222,6 +242,7 @@ function drawTitle(doc, days) {
 
 function drawTable(doc, grid) {
   doc.setLineWidth(0.2);
+
   // Header row: corner, then one cell per day
   doc.setDrawColor(...C.border);
   doc.setFillColor(...C.header);
@@ -254,6 +275,108 @@ function drawTable(doc, grid) {
   });
 }
 
+// ---- Page 2: full detail ----
+
+const detailMeta = (e) => {
+  const parts = [];
+  if (e.mood !== null && e.mood !== undefined) parts.push(`m:${e.mood}`);
+  for (const t of e.tags || []) parts.push(`#${t}`);
+  return parts.join('  ');
+};
+
+// Height an entry takes in its column. Must match drawDetail.
+function measureDetail(doc, e, w) {
+  doc.setFontSize(DETAIL_FONT);
+  doc.setFont('helvetica', e.important ? 'bold' : 'normal');
+  const lines = e.cleanText ? doc.splitTextToSize(e.cleanText, w) : [];
+  const hasMeta = detailMeta(e).length > 0;
+  return DETAIL_LINE + lines.length * DETAIL_LINE + (hasMeta ? 3 : 0) + DETAIL_GAP;
+}
+
+function drawDetail(doc, e, x, y, w) {
+  doc.setFontSize(DETAIL_FONT);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...C.grey);
+  doc.text(timeFormatter.format(new Date(e.timestamp)), x, y + 2.2);
+
+  let cy = y + DETAIL_LINE;
+  if (e.cleanText) {
+    doc.setFont('helvetica', e.important ? 'bold' : 'normal');
+    const lines = doc.splitTextToSize(e.cleanText, w);
+    lines.forEach((line, n) => drawLine(doc, line, e, x, cy + 2.2 + n * DETAIL_LINE, DETAIL_BOX));
+    cy += lines.length * DETAIL_LINE;
+  }
+
+  const meta = detailMeta(e);
+  if (meta) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(...C.grey);
+    doc.text(meta, x, cy + 2.2);
+  }
+}
+
+function drawDetailHeader(doc, days, first) {
+  doc.setLineWidth(0.2);
+  if (first) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(...C.orange);
+    doc.text('Full detail', MARGIN, MARGIN + 7);
+  }
+  days.forEach((day, i) => {
+    const x = MARGIN + i * DETAIL_COL_W;
+    doc.setDrawColor(...C.border);
+    doc.setFillColor(...C.header);
+    doc.rect(x, DETAIL_TOP, DETAIL_COL_W, HEADER_H, 'FD');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(...C.text);
+    doc.text(dayHeader.format(day), x + 1.8, DETAIL_TOP + HEADER_H / 2 + 1.2);
+  });
+}
+
+// One column per day, every entry in full, in time order. Adds continuation
+// pages only if a day is too long to fit on the second page.
+function drawDetailPages(doc, days, entries) {
+  const columns = days.map((day) =>
+    entries
+      .filter((e) => dayKey(new Date(e.timestamp)) === dayKey(day))
+      .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+  );
+  const queues = columns.map((list) => [...list]);
+  const innerW = DETAIL_COL_W - 3.6;
+  let first = true;
+
+  do {
+    doc.addPage('a4', 'landscape');
+    drawDetailHeader(doc, days, first);
+
+    queues.forEach((queue, i) => {
+      const x = MARGIN + i * DETAIL_COL_W;
+      if (first && columns[i].length === 0) {
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(8);
+        doc.setTextColor(...C.grey);
+        doc.text('Nothing logged', x + 1.8, DETAIL_START + 3);
+        return;
+      }
+      let cy = DETAIL_START;
+      while (queue.length) {
+        const e = queue[0];
+        const h = measureDetail(doc, e, innerW);
+        // Stop at the bottom of the page, but always draw at least one entry per page.
+        if (cy + h > PAGE_H - MARGIN && cy > DETAIL_START) break;
+        drawDetail(doc, e, x + 1.8, cy, innerW);
+        cy += h;
+        queue.shift();
+      }
+    });
+
+    first = false;
+  } while (queues.some((q) => q.length));
+}
+
 /**
  * Builds the weekly PDF and downloads it.
  */
@@ -268,6 +391,7 @@ export function exportWeekPdf(entries, now = new Date()) {
   const { days, grid } = buildGrid(entries, now);
   drawTitle(doc, days);
   drawTable(doc, grid);
+  drawDetailPages(doc, days, entries);
 
   const from = dayKey(days[0]);
   const to = dayKey(days[6]);

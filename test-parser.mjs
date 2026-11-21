@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { parseEntry } from './parser.js';
 import { suggestionsFor, applySuggestion } from './suggest.js';
 import { parseBackup } from './backup.js';
-import { splitHobbies } from './hobbies.js';
+import { splitHobbies, hobbyColours } from './hobbies.js';
 
 const NOW = new Date(2026, 10, 19, 10, 0, 0); // 19 Nov 2026, 10:00 local
 
@@ -178,7 +178,7 @@ test('a file that is not a backup is rejected', () => {
 
 test('hobby words are split out of the text for highlighting', () => {
   assert.deepEqual(splitHobbies('Painting the hall', ['painting']), [
-    { text: 'Painting', hobby: true },
+    { text: 'Painting', hobby: true, name: 'painting' },
     { text: ' the hall', hobby: false },
   ]);
 });
@@ -186,6 +186,11 @@ test('hobby words are split out of the text for highlighting', () => {
 test('highlighting matches whole words only', () => {
   const pieces = splitHobbies('gaming and gamingly', ['gaming']);
   assert.deepEqual(pieces.filter((p) => p.hobby).map((p) => p.text), ['gaming']);
+});
+
+test('chores has its own colours, other hobbies do not', () => {
+  assert.deepEqual(hobbyColours('chores').fill, [124, 58, 237]);
+  assert.equal(hobbyColours('painting'), null);
 });
 
 console.log(`\n${passed} passed`);

@@ -4,7 +4,7 @@ import { storage } from './storage.js';
 import { exportWeekPdf } from './export.js';
 import { suggestionsFor, applySuggestion } from './suggest.js';
 import { exportBackup, parseBackup, LAST_EXPORT_KEY } from './backup.js';
-import { splitHobbies } from './hobbies.js';
+import { splitHobbies, hobbyColours } from './hobbies.js';
 
 const form = document.getElementById('entry-form');
 const input = document.getElementById('entry-input');
@@ -169,11 +169,19 @@ function renderEntry(entry) {
 
   const text = document.createElement('p');
   text.className = 'entry-text';
-  for (const piece of (entry.hobby ? [{ text: entry.cleanText, hobby: true }] : splitHobbies(entry.cleanText, entry.hobbies))) {
+  const pieces = entry.hobby
+    ? [{ text: entry.cleanText, hobby: true, name: entry.cleanText.toLowerCase() }]
+    : splitHobbies(entry.cleanText, entry.hobbies);
+  for (const piece of pieces) {
     if (piece.hobby) {
       const mark = document.createElement('mark');
       mark.className = 'hobby';
       mark.textContent = piece.text;
+      const style = hobbyColours(piece.name);
+      if (style) {
+        mark.style.background = `rgb(${style.fill.join(',')})`;
+        mark.style.color = `rgb(${style.text.join(',')})`;
+      }
       text.append(mark);
     } else {
       text.append(document.createTextNode(piece.text));
