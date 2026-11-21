@@ -7,6 +7,7 @@ const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // Special colours for particular hobbies. Any other hobby uses the default yellow.
 const HOBBY_COLOURS = {
   chores: { fill: [124, 58, 237], text: [255, 255, 255] }, // purple, white text
+  list: { fill: [124, 58, 237], text: [255, 255, 255] },   // purple, white text
 };
 
 export function hobbyColours(name) {
